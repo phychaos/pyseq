@@ -216,11 +216,6 @@
               <item name="pyseq" type="b2602c69:ProjectViewProjectNode" />
               <item name="pyseq" type="462c0819:PsiDirectoryNode" />
             </path>
-            <path>
-              <item name="pyseq" type="b2602c69:ProjectViewProjectNode" />
-              <item name="pyseq" type="462c0819:PsiDirectoryNode" />
-              <item name="example" type="462c0819:PsiDirectoryNode" />
-            </path>
           </expand>
           <select />
         </subPane>
@@ -294,12 +289,12 @@
     <frame x="0" y="28" width="1600" height="872" extended-state="6" />
     <layout>
       <window_info anchor="bottom" id="TODO" order="6" />
-      <window_info anchor="bottom" id="Event Log" side_tool="true" />
+      <window_info anchor="bottom" id="Event Log" sideWeight="0.5006443" side_tool="true" weight="0.73450136" />
       <window_info anchor="bottom" id="Database Changes" show_stripe_button="false" />
       <window_info anchor="bottom" id="Run" order="2" weight="0.3293011" />
-      <window_info anchor="bottom" id="Version Control" />
+      <window_info anchor="bottom" id="Version Control" weight="0.32884097" />
       <window_info anchor="bottom" id="Python Console" weight="0.3293011" />
-      <window_info active="true" anchor="bottom" id="Terminal" visible="true" weight="0.73450136" />
+      <window_info active="true" anchor="bottom" id="Terminal" sideWeight="0.49935567" visible="true" weight="0.73450136" />
       <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.16237113" />
       <window_info anchor="bottom" id="Docker" show_stripe_button="false" />
       <window_info anchor="right" id="Database" />
@@ -318,6 +313,32 @@
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="1" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="RECENTLY_FILTERED_USER_GROUPS">
+                <collection />
+              </option>
+              <option name="RECENTLY_FILTERED_BRANCH_GROUPS">
+                <collection />
+              </option>
+              <option name="COLUMN_ORDER">
+                <list>
+                  <option value="0" />
+                  <option value="1" />
+                  <option value="2" />
+                  <option value="3" />
+                </list>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
