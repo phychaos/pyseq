@@ -1120,10 +1120,10 @@ def main():
 	# train("datas\\4.msr_training.data","templatechunk","model")
 	# train("..\\train2.txt","..\\template.txt","model",mp=1,fd=2)
 	# train("datas\\train.txt","templatechunk","model")
-	# train("model_zhusu_ZZ", "templatesimple.txt", "model", mp=1)
+	train("model_zhusu_ZZ", "templatesimple.txt", "model", mp=1)
 	# train("tr1.utf8.txt","templatesimple.txt","model")
 
-	crf_predict("model_zhusu_ZZ", "model", "res.txt")
+	# crf_predict("model_zhusu_ZZ", "model", "res.txt")
 
 
 # crf_predict("tr1.utf8.txt","model","res.txt")
