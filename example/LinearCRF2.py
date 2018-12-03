@@ -176,7 +176,7 @@ def process_features(tp_list, texts, num_classify, fd=1):
 	bf_obs = dict()
 	for ti, tp in enumerate(tp_list):  # for each template line
 		for text in texts:
-			for lid in range(text):
+			for lid in range(len(text)):
 				obx = expand_observation(text, lid, tp)
 
 				if obx[0] == "B":
@@ -196,7 +196,7 @@ def process_features(tp_list, texts, num_classify, fd=1):
 	if fd >= 2:  # 移除频次小于2的特征
 		uf_obs = {k: v for k, v in uf_obs.items() if v >= fd}
 		bf_obs = {k: v for k, v in bf_obs.items() if v >= fd}
-
+	print(list(uf_obs.keys())[:10])
 	uf_num, bf_num = 0, 0
 	for obx in bf_obs.keys():
 		bf_obs[obx] = bf_num
@@ -214,14 +214,14 @@ def cal_observe_on(tp_list, texts, uf_obs, bf_obs, seq_num):
 	"""
 	uon = []
 	bon = []
-	for sid in range(seq_num):  # for each training sequence.
+	for text in texts:
 		seq_uon = []
 		seq_bon = []
-		for lid in range(len(texts[sid])):
+		for lid in range(len(text)):
 			l_uon = []
 			l_bon = []
 			for ti, tp in enumerate(tp_list):  # for each template line
-				obx = expand_observation(texts, sid, lid, tp)
+				obx = expand_observation(text, lid, tp)
 				if tp[0][0] == "B":
 					fid = bf_obs.get(obx)
 					# print fid
@@ -1060,7 +1060,7 @@ def train(data_file, template_file, model_file, mp=1, regtype=2, sigma=1.0, fd=5
 										  bon_seq_sta, bon_loc_sta, bon_loc_end, x, seq_num, num_classify, uf_num,
 										  bf_num, regtype, sigma)
 	likelihood_deriv = lambda x: -gradient_likelihood(x)
-	theta, fobj, dtemp = optimize.fmin_l_bfgs_b(likeli, theta, fprime=likelihood_deriv, disp=1, factr=1e12, maxiter=20)
+	theta, fobj, dtemp = optimize.fmin_l_bfgs_b(likeli, theta, fprime=likelihood_deriv, disp=1, factr=1e12, maxiter=40)
 
 	with open("ubobx", 'rb') as f:
 		uf_obs, bf_obs = pickle.load(f)
@@ -1120,10 +1120,10 @@ def main():
 	# train("datas\\4.msr_training.data","templatechunk","model")
 	# train("..\\train2.txt","..\\template.txt","model",mp=1,fd=2)
 	# train("datas\\train.txt","templatechunk","model")
-	# train("ned.train", "templatesimple.txt", "model", mp=1)
+	# train("model_zhusu_ZZ", "templatesimple.txt", "model", mp=1)
 	# train("tr1.utf8.txt","templatesimple.txt","model")
 
-	crf_predict("ned.testa", "model", "res.txt")
+	crf_predict("model_zhusu_ZZ", "model", "res.txt")
 
 
 # crf_predict("tr1.utf8.txt","model","res.txt")

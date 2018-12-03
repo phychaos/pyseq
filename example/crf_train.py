@@ -9,9 +9,9 @@ from pyseq.linear_crf import CRF
 
 def main():
 	model = CRF(mp=1)
-	model.fit(data_file='ned.train', template_file='templatesimple.txt', model_file="model")
+	model.fit(data_file='model_zhusu_ZZ', template_file='templatesimple.txt', model_file="model")
 
 
 if __name__ == "__main__":
-	multiprocessing.freeze_support()
+	# multiprocessing.freeze_support()
 	main()
