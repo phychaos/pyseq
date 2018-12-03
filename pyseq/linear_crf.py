@@ -11,6 +11,7 @@ from queue import Queue
 from scipy import optimize
 import time
 from pyseq.utils import *
+from concurrent import futures
 
 
 class CRF(object):
@@ -36,26 +37,20 @@ class CRF(object):
         self.fd = fd
         self.sigma = sigma
         self.regtype = regtype
-        self.uon_arr = None
-        self.uon_seq_sta = None
-        self.uon_loc_sta = None
-        self.uon_loc_end = None
-        self.bon_arr = None
-        self.bon_seq_sta = None
-        self.bon_loc_sta = None
-        self.bon_loc_end = None
 
     def print_parameter(self, seq_num):
         print("线性CRF 版本 1.0.")
         print("B 特征:\t{}\nU 特征:\t{}".format(self.bf_num, self.uf_num))
+        print("序列长度:\t{}".format(seq_num))
 
-    def fit(self, data_file, template_file, model_file, max_iter=10):
+    def fit(self, data_file, template_file, model_file, max_iter=10, n_jobs=None):
         """
         训练模型
         :param data_file: 训练集
         :param template_file: 模板
         :param model_file: 模型文件
         :param max_iter: 迭代次数
+        :param n_jobs: 进程数
         :return:
         """
         self.tp_list = read_template(template_file)
@@ -69,32 +64,30 @@ class CRF(object):
 
         y0 = 0
         fss = self.cal_fss(texts, oys, uon, bon, y0)
-        self.cal_observe_on_loc(uon, bon)
         del texts
         del oys
-        del uon
-        del bon
 
         theta = random_param(self.uf_num, self.bf_num)
 
         if self.mp == 1:
-            likelihood = lambda x: -self.likelihood_mp_sa(seq_lens, fss, x)
+            n_jobs = min(os.cpu_count() - 1, n_jobs)
+
+            likelihood = lambda x: -self.likelihood_mp_sa(seq_lens, fss, x, uon, bon, self.regtype, self.sigma, n_jobs)
         else:
-            args = (seq_lens, fss, theta, self.seq_num, self.uf_num, self.bf_num, self.num_k, self.uon_arr,
-                    self.uon_seq_sta, self.uon_loc_sta, self.uon_loc_end, self.bon_arr, self.bon_seq_sta,
-                    self.bon_loc_sta, self.bon_loc_end)
-            likelihood = lambda x: -self.likelihood_sa(*args)
+            likelihood = lambda x: -self.likelihood_sa(seq_lens, fss, x, uon, bon, self.seq_num, self.uf_num,
+                                                       self.bf_num, self.num_k, self.regtype, self.sigma)
         start_time = time.time()
         likelihood_der = lambda x: -self.gradient_likelihood(x)
-        theta, f_obj, d_temp = optimize.fmin_l_bfgs_b(
-            likelihood, theta, fprime=likelihood_der, disp=1, factr=1e12, maxiter=max_iter)
+        theta, _, _ = optimize.fmin_l_bfgs_b(likelihood, theta, fprime=likelihood_der, disp=1, maxiter=max_iter)
         self.theta = theta
-        model = [self.bf_num, self.uf_num, self.tp_list, self.oby_dic, self.uf_obs, self.bf_obs, self.theta]
+        model = [self.bf_num, self.uf_num, self.tp_list, self.oby_dic, self.uf_obs, self.bf_obs, self.theta, self.num_k]
         save_model(model, model_file)
-        print("训练结束 ", time.time() - start_time, "seconds. \n ")
+        print("L-BFGS-B 训练耗时:\t{}s".format(int(time.time() - start_time)))
 
-    def predict(self, data_file, result_file=""):
-        texts, seq_lens, oys, seq_num, t1, oby_dic_tmp, y2label_temp = read_data(data_file)
+    def predict(self, data_file, model_file='model', result_file=""):
+        self.bf_num, self.uf_num, self.tp_list, self.oby_dic, self.uf_obs, self.bf_obs, self.theta, self.num_k = load_model(
+            model_file)
+        texts, seq_lens, oys, seq_num, num_k, oby_dic_tmp, y2label_temp = read_data(data_file)
         if seq_num == 0 or len(self.oby_dic) == 0:
             print("ERROR: Read data file failed!")
             return -1
@@ -116,11 +109,18 @@ class CRF(object):
         output_file(texts, oys, max_ys, y2label, result_file)
 
     def tagging(self, seq_lens, uon, bon, seq_num):
+        """
+        :param seq_lens: [10,8,3,10] 句子长度
+        :param uon: u特征
+        :param bon:
+        :param seq_num:
+        :return:
+        """
         theta_b = self.theta[0:self.bf_num]
         theta_u = self.theta[self.bf_num:]
         max_ys = []
-        for si in range(seq_num):
-            log_m_list = self.log_m_array(seq_lens[si], uon[si], bon[si], theta_u, theta_b)
+        for seq_id in range(seq_num):
+            log_m_list = self.log_m_array(seq_lens[seq_id], uon[seq_id], bon[seq_id], theta_u, theta_b, self.num_k)
             max_alpha = np.zeros((len(log_m_list), self.num_k))
             my = []
             max_ilist = []
@@ -244,69 +244,6 @@ class CRF(object):
             bon.append(seq_bon)
         return uon, bon
 
-    def cal_observe_on_loc(self, uon, bon):
-        """
-        :param uon: [[['U:你','U:你:好'],['U:你','U:你:好']]],[],[]]
-        :param bon:
-        :return:
-        """
-        """
-        speed up the feature calculation (muliprocessing)
-        calculate the on feature list and location
-        """
-        # loc_len 字符数 u_len 特征数
-        u_len = 0
-        loc_len = 0
-        for a in uon:
-            loc_len += len(a)
-            for b in a:
-                u_len += len(b)
-
-        self.uon_arr = np.zeros((u_len,), dtype=np.int)
-        self.uon_seq_sta = np.zeros((self.seq_num,), dtype=np.int)
-        self.uon_loc_sta = np.zeros((loc_len,), dtype=np.int)
-        self.uon_loc_end = np.zeros((loc_len,), dtype=np.int)
-
-        uid = 0
-        seq_id = 0
-        loc_id = 0
-        for seq in uon:  # 序列 [['U:你','U:你:好'],['U:你','U:你:好']]
-            self.uon_seq_sta[seq_id] = loc_id
-            for loco in seq:  # 字符特征 ['U:你','U:你:好']
-                self.uon_loc_sta[loc_id] = uid
-                for aon in loco:
-                    self.uon_arr[uid] = aon
-                    uid += 1
-                self.uon_loc_end[loc_id] = uid
-                loc_id += 1
-            seq_id += 1
-        # ------------------------------------------------------------------------------------------
-        b_len = 0
-        loc_len = 0
-        for a in bon:
-            loc_len += len(a)
-            for b in a:
-                b_len += len(b)
-
-        self.bon_arr = np.zeros((u_len,), dtype=np.int)
-        self.bon_seq_sta = np.zeros((self.seq_num,), dtype=np.int)
-        self.bon_loc_sta = np.zeros((loc_len,), dtype=np.int)
-        self.bon_loc_end = np.zeros((loc_len,), dtype=np.int)
-
-        bid = 0
-        seq_id = 0
-        loc_id = 0
-        for seq in bon:  # for each training sequence.
-            self.bon_seq_sta[seq_id] = loc_id
-            for loco in seq:
-                self.bon_loc_sta[loc_id] = bid
-                for aon in loco:
-                    self.bon_arr[bid] = aon
-                    bid += 1
-                self.bon_loc_end[loc_id] = bid
-                loc_id += 1
-            seq_id += 1
-
     def cal_fss(self, texts, oys, uon, bon, y0):
         """
         统计特征数量 每个特征对应 num_k 个特征
@@ -337,7 +274,19 @@ class CRF(object):
         global _gradient
         return _gradient
 
-    def likelihood_mp_sa(self, seq_lens, fss, theta):
+    def likelihood_mp_sa(self, seq_lens, fss, theta, uon, bon, regtype, sigma, n_jobs):
+        """
+        并行计算参数
+        :param seq_lens:
+        :param fss:
+        :param theta:
+        :param uon:
+        :param bon:
+        :param regtype:
+        :param sigma:
+        :param n_jobs:
+        :return:
+        """
         global _gradient
         grad = np.array(fss, copy=True)  # data distribution
         likelihood = np.dot(fss, theta)
@@ -345,21 +294,26 @@ class CRF(object):
         que2 = Queue()  # for the gradient output
         num_p = 0
         sub_processes = []
-        core_num = multiprocessing.cpu_count()
         # core_num=1
         seq_num = self.seq_num
-        if core_num > 1:
-            chunk = int(seq_num / core_num) + 1
-        else:
-            chunk = seq_num
+        n_thread = 2 * n_jobs
+        chunk = seq_num / n_thread
+        chunk_id = [int(kk * chunk) for kk in range(n_thread + 1)]
+        start_end = [(chunk_id[i], chunk_id[i + 1]) for i in range(n_thread)]
+        jobs = []
+        with futures.ProcessPoolExecutor(max_workers=n_jobs) as executor:
+            for start, end in start_end:
+                args = (seq_lens[start:end], uon[start:end], bon[start:end], theta)
+                job = executor.submit(fn=self.likelihood_thread_sa, args=args)
+                jobs.append(job)
         start = 0
         while start < seq_num:
             end = start + chunk
             if end > seq_num:
                 end = seq_num
-            args = (seq_lens, theta, start, end, self.uf_num, self.bf_num, self.num_k, self.uon_arr, self.uon_seq_sta,
-                    self.uon_loc_sta, self.uon_loc_end, self.bon_arr, self.bon_seq_sta, self.bon_loc_sta,
-                    self.bon_loc_end, que1, que2)
+            args = (
+                seq_lens[start:end], uon[start:end], bon[start:end], theta, self.num_k, self.uf_num, self.bf_num, que1,
+                que2)
             p = Process(target=self.likelihood_thread_sa, args=args)
             p.start()
             num_p += 1
@@ -371,12 +325,12 @@ class CRF(object):
             grad += que2.get()
         while sub_processes:
             sub_processes.pop().join()
-        grad -= self.regularity_der(theta)
+        grad -= regularity_der(theta, regtype, sigma)
         _gradient = grad
-        return likelihood - self.regularity(theta)
+        return likelihood - regularity(theta, regtype, sigma)
 
-    def likelihood_sa(self, seq_lens, fss, theta, seq_num, uf_num, bf_num, num_k, uon_arr, uon_seq_sta, uon_loc_sta,
-                      uon_loc_end, bon_arr, bon_seq_sta, bon_loc_sta, bon_loc_end):
+    @staticmethod
+    def likelihood_sa(seq_lens, fss, theta, uon, bon, seq_num, uf_num, bf_num, num_k, regtype, sigma):
         global _gradient
         grad = np.array(fss, copy=True)  # data distribution
         grad_b = grad[0:bf_num]
@@ -384,11 +338,10 @@ class CRF(object):
         theta_b = theta[0:bf_num]
         theta_u = theta[bf_num:]
         likelihood = np.dot(fss, theta)
-        for si in range(seq_num):
-            log_m_list = self.log_m_sa(seq_lens[si], si, theta_u, theta_b, num_k, uon_arr, uon_seq_sta, uon_loc_sta,
-                                       uon_loc_end, bon_arr, bon_seq_sta, bon_loc_sta, bon_loc_end)
-            log_alphas = self.cal_log_alphas(log_m_list)
-            log_betas = self.cal_log_betas(log_m_list)
+        for seq_id in range(seq_num):
+            log_m_list = log_m_array(seq_lens[seq_id], uon[seq_id], bon[seq_id], theta_u, theta_b, num_k)
+            log_alphas = cal_log_alphas(log_m_list)
+            log_betas = cal_log_betas(log_m_list)
             log_z = logsumexp(log_alphas[-1])
             likelihood -= log_z
             expect = np.zeros((num_k, num_k))
@@ -400,43 +353,26 @@ class CRF(object):
                         log_m_list[i] + log_alphas[i - 1][np.newaxis, :] + log_betas[i][:, np.newaxis] - log_z)
                 p_yi = np.sum(expect, axis=1)
                 # minus the parameter distribution
-                u_loc_id = uon_seq_sta[si]
-                u_start, u_end = uon_loc_sta[u_loc_id + i], uon_loc_end[u_loc_id + i]
-                for it in range(u_start, u_end):
-                    ao = uon_arr[it]
+                for ao in uon[seq_id][i]:
                     grad_u[ao:ao + num_k] -= p_yi
-
-                b_loc_id = bon_seq_sta[si]
-                b_start, b_end = bon_loc_sta[b_loc_id + i], bon_loc_end[b_loc_id + i]
-                for it in range(b_start, b_end):
-                    ao = bon_arr[it]
+                for ao in bon[seq_id][i]:
                     grad_b[ao:ao + num_k * num_k] -= expect.reshape((num_k * num_k))
-        grad -= self.regularity_der(theta)
+        grad -= regularity_der(theta, regtype, sigma)
         _gradient = grad
-        return likelihood - self.regularity(theta)
+        return likelihood - regularity(theta, regtype, sigma)
 
-    def likelihood_thread_o(self, seq_lens, uon, bon, theta_u, theta_b, start, end, que):
-        num_k = self.num_k
-        likelihood = 0.0
-        for seq_id in range(start, end):
-            log_m_list = self.log_m_array(seq_lens[seq_id], uon[seq_id], bon[seq_id], theta_u, theta_b, num_k)
-            log_z = logsumexp(self.cal_log_alphas(log_m_list)[-1])
-            likelihood -= log_z
-        que.put(likelihood)
-
-    def likelihood_thread_sa(self, seq_lens, theta, start, end, uf_num, bf_num, num_k, uon_arr, uon_seq_sta,
-                             uon_loc_sta, uon_loc_end, bon_arr, bon_seq_sta, bon_loc_sta, bon_loc_end, que1, que2):
+    @staticmethod
+    def likelihood_thread_sa(seq_lens, uon, bon, theta, num_k, uf_num, bf_num, que1, que2):
         grad = np.zeros(uf_num + bf_num)
         likelihood = 0
         grad_b = grad[0:bf_num]
         grad_u = grad[bf_num:]
         theta_b = theta[0:bf_num]
         theta_u = theta[bf_num:]
-        for si in range(start, end):
-            log_m_list = self.log_m_sa(seq_lens[si], si, theta_u, theta_b, num_k, uon_arr, uon_seq_sta, uon_loc_sta,
-                                       uon_loc_end, bon_arr, bon_seq_sta, bon_loc_sta, bon_loc_end)
-            log_alphas = self.cal_log_alphas(log_m_list)
-            log_betas = self.cal_log_betas(log_m_list)
+        for seq_id in range(len(seq_lens)):
+            log_m_list = log_m_array(seq_lens[seq_id], uon[seq_id], bon[seq_id], theta_u, theta_b, num_k)
+            log_alphas = cal_log_alphas(log_m_list)
+            log_betas = cal_log_betas(log_m_list)
             log_z = logsumexp(log_alphas[-1])
             likelihood -= log_z
             expect = np.zeros((num_k, num_k))
@@ -448,104 +384,19 @@ class CRF(object):
                         log_m_list[i] + log_alphas[i - 1][np.newaxis, :] + log_betas[i][:, np.newaxis] - log_z)
                 p_yi = np.sum(expect, axis=1)
                 # minus the parameter distribution
-                u_loc_id = uon_seq_sta[si]
-                u_start, u_end = uon_loc_sta[u_loc_id + i], uon_loc_end[u_loc_id + i]
-                for it in range(u_start, u_end):
-                    ao = uon_arr[it]
+                for ao in uon[seq_id][i]:
                     grad_u[ao:ao + num_k] -= p_yi
-
-                b_loc_id = bon_seq_sta[si]
-                for it in range(bon_loc_sta[b_loc_id + i], bon_loc_end[b_loc_id + i]):
-                    ao = bon_arr[it]
+                for ao in bon[seq_id][i]:
                     grad_b[ao:ao + num_k * num_k] -= expect.reshape((num_k * num_k))
-
-        que1.put(likelihood)
-        que2.put(grad)
-
-    def regularity(self, theta):
-        if self.regtype == 0:
-            regular = 0
-        elif self.regtype == 1:
-            regular = np.sum(np.abs(theta)) / self.sigma
-        else:
-            v = self.sigma ** 2
-            v2 = v * 2
-            regular = np.sum(np.dot(theta, theta)) / v2
-        return regular
-
-    def regularity_der(self, theta):
-        if self.regtype == 0:
-            regular_der = 0
-        elif self.regtype == 1:
-            regular_der = np.sign(theta) / self.sigma
-        else:
-            v = self.sigma ** 2
-            regular_der = theta / v
-        return regular_der
-
-    @staticmethod
-    def log_m_array(seq_len, auon, abon, theta_u, theta_b, num_k):
-        # log_m_list (n, num_k, num_k ) --> (sequence length, Yt, Yt-1)
-        m_list = []
-        for li in range(seq_len):
-            fv = np.zeros((num_k, num_k))
-            for ao in auon[li]:
-                fv += theta_u[ao:ao + num_k][:, np.newaxis]
-
-            for ao in abon[li]:
-                fv += theta_b[ao:ao + num_k * num_k].reshape(
-                    (num_k, num_k))
-            m_list.append(fv)
-
-        for i in range(0, num_k):  # set the emerge function for ~y(0) to be -inf.
-            m_list[0][i][1:] = - float("inf")
-        return m_list
-
-    @staticmethod
-    def log_m_sa(seq_len, seq_id, theta_u, theta_b, num_k, uon_arr, uon_seq_sta, uon_loc_sta, uon_loc_end, bon_arr,
-                 bon_seq_sta, bon_loc_sta, bon_loc_end):
-        m_list = []
-        u_loc_id = uon_seq_sta[seq_id]
-        b_loc_id = bon_seq_sta[seq_id]
-        for li in range(seq_len):
-            fv = np.zeros((num_k, num_k))
-            u_start, u_end = uon_loc_sta[u_loc_id + li], uon_loc_end[u_loc_id + li]
-            for i in range(u_start, u_end):
-                ao = uon_arr[i]
-                fv += theta_u[ao:ao + num_k][:, np.newaxis]
-
-            b_start, b_end = bon_loc_sta[b_loc_id + li], bon_loc_end[b_loc_id + li]
-            for i in range(b_start, b_end):
-                ao = bon_arr[i]
-                fv += theta_b[ao:ao + num_k * num_k].reshape((num_k, num_k))
-            m_list.append(fv)
-
-        for i in range(0, num_k):
-            m_list[0][i][1:] = - float("inf")
-        return m_list
-
-    @staticmethod
-    def cal_log_alphas(m_list):
-        log_alpha = m_list[0][:, 0]  # alpha(1)
-        log_alphas = [log_alpha]
-        for logM in m_list[1:]:
-            log_alpha = log_sum_exp_vec_mat(log_alpha, logM)
-            log_alphas.append(log_alpha)
-        return log_alphas
-
-    @staticmethod
-    def cal_log_betas(m_list):
-        log_beta = np.zeros_like(m_list[-1][:, 0])
-        log_betas = [log_beta]
-        for logM in m_list[-1:0:-1]:
-            log_beta = log_sum_exp_mat_vec(logM, log_beta)
-            log_betas.append(log_beta)
-        return log_betas[::-1]
+        return likelihood, grad
+        # que1.put(likelihood)
+        # que2.put(grad)
 
 
 def main():
-    model = CRF(mp=0)
+    model = CRF(mp=1)
     model.fit(data_file='model_zhusu_ZZ', template_file='templatesimple.txt', model_file="model", max_iter=20)
+    model.predict(data_file='model_zhusu_ZZ', result_file='res.txt')
 
 
 if __name__ == "__main__":
