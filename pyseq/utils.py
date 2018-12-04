@@ -105,7 +105,6 @@ def read_data(filename):
         texts.append(text)
         labels.append(label)
 
-    texts = texts
     oys = labels
     seq_num = len(oys)
     seq_lens = [len(x) for x in texts]
@@ -116,6 +115,13 @@ def read_data(filename):
 
 
 def regularity(theta, regtype, sigma):
+    """
+    正则化 regtype=0,1,2  L1, L2 正则
+    :param theta: 参数 shape = (f_num,) = (uf_num + bf_num,)
+    :param regtype: 正则化类型0,1,2 L1正则(loss + |w|/sigma), L2正则(loss + |w|^2/(2*sigma^2))
+    :param sigma:
+    :return:
+    """
     if regtype == 0:
         regular = 0
     elif regtype == 1:
@@ -128,6 +134,13 @@ def regularity(theta, regtype, sigma):
 
 
 def regularity_der(theta, regtype, sigma):
+    """
+    正则化微分 regtype=0,1,2  L1, L2 正则
+    :param theta: 参数 shape = (f_num,) = (uf_num + bf_num,)
+    :param regtype: 正则化类型0,1,2 L1正则(loss' + sign(w)/sigma), L2正则(loss + |w|^2/(2*sigma^2))
+    :param sigma:
+    :return:
+    """
     if regtype == 0:
         regular_der = 0
     elif regtype == 1:
@@ -138,46 +151,58 @@ def regularity_der(theta, regtype, sigma):
     return regular_der
 
 
-def log_m_array(seq_len, auon, abon, theta_u, theta_b, num_k):
+def log_matrix(seq_len, auon, abon, theta_u, theta_b, num_k):
     """
-    特征抽取
-    :param seq_len:
-    :param auon:
-    :param abon:
-    :param theta_u:
-    :param theta_b:
-    :param num_k:
-    :return:
+    特征抽取 条件随机场矩阵形式 M_i = sum( theta * f )
+    :param seq_len: 序列长度 int
+    :param auon: 序列u特征 shape =(seq_len,) [[1245,4665],[2,33,455],...]
+    :param abon: 序列u特征  shape =(seq_len,)
+    :param theta_u: u特征参数
+    :param theta_b: b特征参数
+    :param num_k: 状态数
+    :return: num_k 阶矩阵 shape = (seq_len,num_k,num_k)
     """
-    m_list = []
+    matrix_list = []
     for li in range(seq_len):
         fv = np.zeros((num_k, num_k))
         for ao in auon[li]:
-            fv += theta_u[ao:ao + num_k][:, np.newaxis]
+            m = theta_u[ao:ao + num_k]
+            fv += m[:, np.newaxis]
 
         for ao in abon[li]:
-            fv += theta_b[ao:ao + num_k * num_k].reshape((num_k, num_k))
-        m_list.append(fv)
-
+            m = theta_b[ao:ao + num_k * num_k]
+            fv += m.reshape((num_k, num_k))
+        matrix_list.append(fv)
+    # 初始状态
     for i in range(0, num_k):  # set the emerge function for ~y(0) to be -inf.
-        m_list[0][i][1:] = - float("inf")
-    return m_list
+        matrix_list[0][i][1:] = - float("inf")
+    return matrix_list
 
 
 def cal_log_alphas(m_list):
+    """
+    前向算法 alpha
+    :param m_list: 条件随机场矩阵形式 M_i = sum( theta * fss )
+    :return:
+    """
     log_alpha = m_list[0][:, 0]  # alpha(1)
     log_alphas = [log_alpha]
     for logM in m_list[1:]:
-        log_alpha = log_sum_exp_vec_mat(log_alpha, logM)
+        log_alpha = logsumexp_vec_mat(log_alpha, logM)
         log_alphas.append(log_alpha)
     return log_alphas
 
 
 def cal_log_betas(m_list):
+    """
+    后向算法 beta
+    :param m_list: 条件随机场矩阵形式 M_i = sum( theta * fss )
+    :return:
+    """
     log_beta = np.zeros_like(m_list[-1][:, 0])
     log_betas = [log_beta]
     for logM in m_list[-1:0:-1]:
-        log_beta = log_sum_exp_mat_vec(logM, log_beta)
+        log_beta = logsumexp_mat_vec(logM, log_beta)
         log_betas.append(log_beta)
     return log_betas[::-1]
 
@@ -231,11 +256,17 @@ def output_file(texts, oys, max_ys, y2label, res_file):
     return 0
 
 
-def log_sum_exp_vec_mat(log_a, log_m):
+def logsumexp_vec_mat(log_a, log_m):
+    """
+    计算logsumexp log(e^x) = a-log(e^(-x+a))
+    :param log_a:
+    :param log_m:
+    :return:
+    """
     return logsumexp(log_a + log_m, axis=1)
 
 
-def log_sum_exp_mat_vec(log_m, logb):
+def logsumexp_mat_vec(log_m, logb):
     return logsumexp(log_m + logb[:, np.newaxis], axis=0)
 
 

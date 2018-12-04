@@ -1060,7 +1060,7 @@ def train(data_file, template_file, model_file, mp=1, regtype=2, sigma=1.0, fd=5
 										  bon_seq_sta, bon_loc_sta, bon_loc_end, x, seq_num, num_classify, uf_num,
 										  bf_num, regtype, sigma)
 	likelihood_deriv = lambda x: -gradient_likelihood(x)
-	theta, fobj, dtemp = optimize.fmin_l_bfgs_b(likeli, theta, fprime=likelihood_deriv, disp=1, factr=1e12, maxiter=40)
+	theta, fobj, dtemp = optimize.fmin_l_bfgs_b(likeli, theta, fprime=likelihood_deriv, disp=1, factr=1e12, maxiter=20)
 
 	with open("ubobx", 'rb') as f:
 		uf_obs, bf_obs = pickle.load(f)
@@ -1114,14 +1114,14 @@ def main():
 	# checkCrfDev("train2.txt","template.txt")
 	# checkCrfDev_sa("..\\train1.txt","..\\template.txt",mp=1)
 	# checkCrfDev("trainexample2.txt","template.txt")
-	# checkCrfDev_sa("trainsimple.data","templatesimple.txt",mp=1)
+	# checkCrfDev_sa("trainsimple.data","templates.txt",mp=1)
 	# train("..\\train1.txt","..\\template.txt","model",mp=0,fd=1)
 	# train("train1.txt","template.txt","model",mp=1)
 	# train("datas\\4.msr_training.data","templatechunk","model")
 	# train("..\\train2.txt","..\\template.txt","model",mp=1,fd=2)
 	# train("datas\\train.txt","templatechunk","model")
-	train("model_zhusu_ZZ", "templatesimple.txt", "model", mp=1)
-	# train("tr1.utf8.txt","templatesimple.txt","model")
+	train("model_zhusu_ZZ", "templates.txt", "model", mp=1)
+	# train("tr1.utf8.txt","templates.txt","model")
 
 	# crf_predict("model_zhusu_ZZ", "model", "res.txt")
 
