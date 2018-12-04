@@ -142,7 +142,7 @@ class CRF(object):
                     # 取状态概率最大的序列(num_k,num_k)
                     at = matrix_list[i] + max_alpha[i - 1]
                     max_alpha[i] = at.max(axis=1)
-                    max_ilist.append(at.argmax(axis=1))
+                    max_ilist.append(at.argmax(axis=1))  # 索引代表前一时刻和当前时刻求和的最大值
             # 最终状态 取概率最大一个最为最终序列结果
             ty = max_alpha[-1].argmax()
             my.append(ty)
@@ -330,6 +330,8 @@ class CRF(object):
     def likelihood_sa(fss, theta, seq_lens, uon, bon, seq_num, uf_num, bf_num, num_k, regtype, sigma):
         """
         损失函数 梯度
+        对数似然函数 L(theta) = theta * fss -sum(log Z)
+        梯度 grad = fss - sum (exp(theta * f) * f)
         :param fss: 特征分布
         :param theta: 参数 shape = (f_num,)
         :param seq_lens: 序列长度 shape=(N,)
