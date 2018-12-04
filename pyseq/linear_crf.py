@@ -5,7 +5,7 @@
 # @File    : linear_crf.py
 from scipy import optimize
 import time
-from pyseq.utils import *
+from .utils import *
 from concurrent import futures
 
 _gradient = None  # global variable used to store the gradient calculated in liklihood function.
