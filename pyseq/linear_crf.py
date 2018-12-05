@@ -146,8 +146,7 @@ class SeqFeature(object):
         for tp in tp_list:
             feature = tp[0] + ':'
             for start, end in tp[1:]:
-                feature += '%x[' + start + ',' + end + ']/'
-            feature.strip('/')
+                feature += '%x[' + start + ',' + end + ']'
             result.append(feature)
         result.append('\n\n#U')
         u_feature = list(sorted(self.uf_obs.keys(), key=lambda x: x))
