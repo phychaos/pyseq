@@ -44,8 +44,8 @@ def read_template(filename):
                 loc = loc_str.split(",")
                 each_list.append(loc)
             tp_list.append(each_list)
-        print("有效模板数量:", len(tp_list))
-        return tp_list
+    print("有效模板数量:", len(tp_list))
+    return tp_list
 
 
 def valid_template_line(line):
@@ -114,97 +114,48 @@ def read_data(filename):
     return texts, seq_lens, oys, seq_num, num_k, oby_dic, y2label
 
 
-def regularity(theta, regtype, sigma):
+def load_data(filename):
     """
-    正则化 regtype=0,1,2  L1, L2 正则
-    :param theta: 参数 shape = (f_num,) = (uf_num + bf_num,)
-    :param regtype: 正则化类型0,1,2 L1正则(loss + |w|/sigma), L2正则(loss + |w|^2/(2*sigma^2))
-    :param sigma:
+    读取训练数据
+    :param filename:
     :return:
     """
-    if regtype == 0:
-        regular = 0
-    elif regtype == 1:
-        regular = np.sum(np.abs(theta)) / sigma
-    else:
-        v = sigma ** 2
-        v2 = v * 2
-        regular = np.sum(np.dot(theta, theta)) / v2
-    return regular
+    if not os.path.isfile(filename):
+        print("文件[{}]不存在".format(filename))
+        exit()
+    texts = []
+    labels = []
+    text = []
+    label = []
+    space_cnt = 0
+    with open(filename, 'r', encoding='utf-8') as fp:
+        for line in fp.readlines():
+            line = line.strip()
+            # 一行结尾符 空行 \n
+            if len(line) == 0:
+                if len(text) > 0:
+                    texts.append(text)
+                    labels.append(label)
+                text = []
+                label = []
+            else:
+                chunk = line.split()
+                if space_cnt == 0:
+                    space_cnt = len(chunk)
+                else:
+                    if len(chunk) != space_cnt:
+                        print("输入错误:\t", line)
+                        continue
+                text.append([chunk[0]])
+                y_label = chunk[-1]
+                label.append(y_label)
+    # 最后一行
+    if len(text) > 0:
+        texts.append(text)
+        labels.append(label)
+    return texts, labels
 
 
-def regularity_der(theta, regtype, sigma):
-    """
-    正则化微分 regtype=0,1,2  L1, L2 正则
-    :param theta: 参数 shape = (f_num,) = (uf_num + bf_num,)
-    :param regtype: 正则化类型0,1,2 L1正则(loss' + sign(w)/sigma), L2正则(loss + |w|^2/(2*sigma^2))
-    :param sigma:
-    :return:
-    """
-    if regtype == 0:
-        regular_der = 0
-    elif regtype == 1:
-        regular_der = np.sign(theta) / sigma
-    else:
-        v = sigma ** 2
-        regular_der = theta / v
-    return regular_der
-
-
-def log_matrix(seq_len, auon, abon, theta_u, theta_b, num_k):
-    """
-    特征抽取 条件随机场矩阵形式 M_i = sum( theta * f )
-    :param seq_len: 序列长度 int
-    :param auon: 序列u特征 shape =(seq_len,) [[1245,4665],[2,33,455],...]
-    :param abon: 序列u特征  shape =(seq_len,)
-    :param theta_u: u特征参数
-    :param theta_b: b特征参数
-    :param num_k: 状态数
-    :return: num_k 阶矩阵 shape = (seq_len,num_k,num_k)
-    """
-    matrix_list = []
-    for li in range(seq_len):
-        fv = np.zeros((num_k, num_k))
-        for ao in auon[li]:
-            m = theta_u[ao:ao + num_k]
-            fv += m[:, np.newaxis]
-
-        for ao in abon[li]:
-            m = theta_b[ao:ao + num_k * num_k]
-            fv += m.reshape((num_k, num_k))
-        matrix_list.append(fv)
-    # 初始状态
-    for i in range(0, num_k):  # set the emerge function for ~y(0) to be -inf.
-        matrix_list[0][i][1:] = - float("inf")
-    return matrix_list
-
-
-def cal_log_alphas(m_list):
-    """
-    前向算法 alpha
-    :param m_list: 条件随机场矩阵形式 M_i = sum( theta * fss )
-    :return:
-    """
-    log_alpha = m_list[0][:, 0]  # alpha(1)
-    log_alphas = [log_alpha]
-    for logM in m_list[1:]:
-        log_alpha = logsumexp_vec_mat(log_alpha, logM)
-        log_alphas.append(log_alpha)
-    return log_alphas
-
-
-def cal_log_betas(m_list):
-    """
-    后向算法 beta
-    :param m_list: 条件随机场矩阵形式 M_i = sum( theta * fss )
-    :return:
-    """
-    log_beta = np.zeros_like(m_list[-1][:, 0])
-    log_betas = [log_beta]
-    for logM in m_list[-1:0:-1]:
-        log_beta = logsumexp_mat_vec(logM, log_beta)
-        log_betas.append(log_beta)
-    return log_betas[::-1]
 
 
 def save_model(model, model_file):
@@ -226,48 +177,32 @@ def load_model(model_file):
     return model
 
 
-def output_file(texts, oys, max_ys, y2label, res_file):
+def output_file(x_test, y_test, max_ys, res_file):
     """
     输出文件
-    :param texts:
-    :param oys:
+    :param x_test:
+    :param y_test:
     :param max_ys:
-    :param y2label:
     :param res_file:
     :return:
     """
-    if res_file == "":
+    if res_file is None:
         return 0
     result = []
-    for si in range(len(oys)):
+    for seq_id, text in enumerate(x_test):
         sentence = []
-        for li in range(len(oys[si])):
+        for loc_id in range(len(text)):
             line = ""
-            for x in texts[si][li]:
-                line += x
-            line += ' '
-            line += y2label[oys[si][li]] + " "
-            line += y2label[max_ys[si][li]]
-            line += "\n"
+            for x in text[loc_id]:
+                line += x + '\t'
+            if y_test:
+                line += y_test[seq_id][loc_id] + "\t"
+            line += max_ys[seq_id][loc_id] + '\n'
             sentence.append(line)
         result.append(''.join(sentence))
     with open(res_file, 'w', encoding='utf-8') as fp:
         fp.write('\n'.join(result))
     return 0
-
-
-def logsumexp_vec_mat(log_a, log_m):
-    """
-    计算logsumexp log(e^x) = a-log(e^(-x+a))
-    :param log_a:
-    :param log_m:
-    :return:
-    """
-    return logsumexp(log_a + log_m, axis=1)
-
-
-def logsumexp_mat_vec(log_m, logb):
-    return logsumexp(log_m + logb[:, np.newaxis], axis=0)
 
 
 def random_param(uf_num, bf_num):

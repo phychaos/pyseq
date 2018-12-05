@@ -260,7 +260,7 @@ def main():
                 token, info, chunk = line.split()
                 text.append((token, info))
                 label.append(chunk)
-        return (texts, labels)
+        return texts, labels
 
     texts, labels = load_data("""
     This DT B-NP
