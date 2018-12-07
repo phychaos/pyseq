@@ -376,8 +376,8 @@ class CRF(object):
 		bon = self.feature.bon
 		for seq_id, seq_len in enumerate(seq_lens):
 			matrix_list = self.log_matrix(seq_len, uon[seq_id], bon[seq_id], theta_u, theta_b, num_k)
-			log_alphas = self.forward_log_alphas(matrix_list)
-			log_betas = self.backward_log_betas(matrix_list)
+			log_alphas = self.forward_alphas(matrix_list)
+			log_betas = self.backward_betas(matrix_list)
 			log_z = logsumexp(log_alphas[-1])
 			likelihood -= log_z
 			expect = np.zeros((num_k, num_k))
@@ -418,8 +418,8 @@ class CRF(object):
 		theta_u = theta[bf_num:]
 		for seq_id, seq_len in enumerate(seq_lens):
 			matrix_list = self.log_matrix(seq_len, uon[seq_id], bon[seq_id], theta_u, theta_b, num_k)
-			log_alphas = self.forward_log_alphas(matrix_list)
-			log_betas = self.backward_log_betas(matrix_list)
+			log_alphas = self.forward_alphas(matrix_list)
+			log_betas = self.backward_betas(matrix_list)
 			log_z = logsumexp(log_alphas[-1])
 			likelihood -= log_z
 			expect = np.zeros((num_k, num_k))
@@ -465,7 +465,7 @@ class CRF(object):
 			matrix_list[0][i][1:] = - float("inf")
 		return matrix_list
 
-	def forward_log_alphas(self, m_list):
+	def forward_alphas(self, m_list):
 		"""
 		前向算法 alpha
 		:param m_list: 条件随机场矩阵形式 M_i = sum( theta * fss )
@@ -478,7 +478,7 @@ class CRF(object):
 			log_alphas.append(log_alpha)
 		return log_alphas
 
-	def backward_log_betas(self, m_list):
+	def backward_betas(self, m_list):
 		"""
 		后向算法 beta
 		:param m_list: 条件随机场矩阵形式 M_i = sum( theta * fss )
