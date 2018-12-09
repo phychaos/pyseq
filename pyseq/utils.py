@@ -215,6 +215,6 @@ def output_file(x_test, y_test, max_ys, res_file):
 	return 0
 
 
-def random_param(uf_num, bf_num):
-	theta = np.ones(uf_num + bf_num)
+def random_param(f_size):
+	theta = np.random.random(f_size)
 	return theta

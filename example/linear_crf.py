@@ -5,7 +5,7 @@
 # @File    : linear_crf.py
 from scipy import optimize
 import time
-from .utils import *
+from pyseq.utils import *
 from concurrent import futures
 
 _gradient = None  # global variable used to store the gradient calculated in liklihood function.
@@ -14,27 +14,38 @@ _gradient = None  # global variable used to store the gradient calculated in lik
 class SeqFeature(object):
 	def __init__(self, fd=5):
 		self.fd = fd
+		self.seq_lens = []
+		self.oby_dict = dict()
 		self.fss = None
-		self.bf_num = 0
-		self.uf_num = 0
-		self.f_num = 0
-		self.uf_obs = dict()
-		self.bf_obs = dict()
-		self.uon = None
-		self.bon = None
+		self.num_k = 0
+		self.feature_node = []
+		self.feature_edge = []
+		self.node_matrix = []
+		self.edge_matrix = []
+		self.template = [
+			['U00', ['-2', '0']],
+			['U01', ['-1', '0']],
+			['U02', ['0', '0']],
+			['U03', ['1', '0']],
+			['U04', ['2', '0']],
+			['U05', ['-2', '0'], ['-1', '0'], ['0', '0']],
+			['U06', ['-1', '0'], ['0', '0'], ['1', '0']],
+			['U07', ['0', '0'], ['1', '0'], ['2', '0']],
+			['U08', ['-1', '0'], ['0', '0']],
+			['U09', ['0', '0'], ['1', '0']],
+			['B'],
+		]
 
-	def process_features(self, texts, tp_list, num_k):
+	def extract_features(self, texts):
 		"""
-		特征提取
+		特征函数提取
 		:param texts: 序列文本 [[['你',],['好',]],[['你',],['好',]]]
-		:param tp_list: 特征模板
-		:param num_k: 状态数
 		:return:
 		"""
 		print("特征提取...")
 		uf_obs = dict()
 		bf_obs = dict()
-		for ti, tp in enumerate(tp_list):  # for each template line tp = [['U00',[-1,0],[0,0]],[]]
+		for tp in self.template:  # for each template line tp = [['U00',[-1,0],[0,0]],[]]
 			for text in texts:
 				for loc_id in range(len(text)):
 					obx = self.expand_observation(text, loc_id, tp)
@@ -51,26 +62,16 @@ class SeqFeature(object):
 							t_val = uf_obs[obx]
 							uf_obs[obx] = t_val + 1
 
-		if self.fd >= 2:  # 移除频次小于fd的特征
-			uf_obs = {k: v for k, v in uf_obs.items() if v >= self.fd}
-			bf_obs = {k: v for k, v in bf_obs.items() if v >= self.fd}
-		# print("特征:\t", list(uf_obs.keys())[-10:])
-		print(bf_obs)
-		uf_num, bf_num = 0, 0
-		for obx in bf_obs.keys():
-			bf_obs[obx] = bf_num
-			bf_num += num_k * num_k
-		for obx in uf_obs.keys():
-			uf_obs[obx] = uf_num
-			uf_num += num_k
-
-		self.uf_num = uf_num
-		self.bf_num = bf_num
-		self.f_num = uf_num + bf_num
-		self.uf_obs = uf_obs
-		self.bf_obs = bf_obs
-		print(bf_obs)
-		print("B 特征:\t{}\nU 特征:\t{}\n总特征:\t{}\n".format(self.bf_num, self.uf_num, self.f_num))
+		node_f = [key for key, v in sorted(uf_obs.items(), key=lambda x: x[1], reverse=True) if v >= self.fd]
+		edge_f = [key for key, v in sorted(bf_obs.items(), key=lambda x: x[1], reverse=True) if v >= self.fd]
+		# 特征函数
+		for state_p in range(self.num_k):
+			for state in range(self.num_k):
+				for edge in edge_f:
+					self.add_feature_edge(lambda y_p, y, x, i: 1 if y_p == state_p and state == y and x == edge else 0)
+		for state in range(self.num_k):
+			for node in node_f:
+				self.add_feature_node(lambda y, x, i: 1 if y == state and node == x else 0)
 
 	@staticmethod
 	def expand_observation(sentence, loc_id, tp):
@@ -92,78 +93,122 @@ class SeqFeature(object):
 				line += ':B' + li[0]
 		return line
 
-	def cal_observe_on(self, texts, tp_list):
+	def cal_observe_on(self, texts):
 		"""
 		获取文本特征 [[['U:你','U:你:好'],['U:你','U:你:好'],[]],[],[]] =[[[145,456,566],[3455,]],[]]
 		:param texts:
-		:param tp_list:
 		:return:
 		"""
-		self.uon = []
-		self.bon = []
 		for text in texts:
 			seq_uon = []
 			seq_bon = []
 			for loc_id in range(len(text)):
-				loc_uon = []
-				loc_bon = []
-				for ti, tp in enumerate(tp_list):  # for each template line
+				uf = np.zeros((self.num_k, self.uf_size()))
+				bf = np.zeros((self.num_k, self.num_k, self.bf_size()))
+				for ti, tp in enumerate(self.template):
 					obx = self.expand_observation(text, loc_id, tp)
 					if tp[0][0] == "B":
-						fid = self.bf_obs.get(obx)
-						if fid is not None:
-							loc_bon.append(fid)
-
+						bf += self.cal_bf(obx, loc_id, self.num_k)
 					if tp[0][0] == "U":
-						fid = self.uf_obs.get(obx)
-						if fid is not None:
-							loc_uon.append(fid)
-				seq_uon.append(loc_uon)
-				seq_bon.append(loc_bon)
-			self.uon.append(seq_uon)
-			self.bon.append(seq_bon)
-		return self.uon, self.bon
+						uf += self.cal_uf(obx, loc_id, self.num_k)
+				seq_uon.append(uf)
+				seq_bon.append(bf)
+			self.node_matrix.append(seq_uon)
+			self.edge_matrix.append(seq_bon)
 
-	def cal_fss(self, x_texts, y_label, num_k, y0):
+	def cal_bf(self, x_i, loc_id, num_k):
+		"""
+		b特征统计 K * K * n K^2
+		:param x_i:
+		:param loc_id:
+		:param num_k:
+		:return:
+		"""
+		bf = np.zeros((num_k, num_k, self.bf_size()))
+		for state_p in range(num_k):
+			for state in range(num_k):
+				bf[state_p, state, :] = [f(state_p, state, x_i, loc_id) for f in self.feature_edge]
+		return bf
+
+	def cal_uf(self, x_i, loc_id, num_k):
+		"""
+		u特征统计 K * n K
+		:param x_i:
+		:param loc_id:
+		:param num_k:
+		:return:
+		"""
+		uf = np.zeros((num_k, self.uf_size()))
+		for state in range(num_k):
+			uf[state, :] = [f(state, x_i, loc_id) for f in self.feature_node]
+		return uf
+
+	def cal_fss(self, labels, y0):
 		"""
 		统计特征数量 每个特征对应 num_k 个特征
-		:param x_texts: 序列文本
-		:param y_label: 标签
-		:param num_k: 状态数
+		:param labels: 标签
 		:param y0: 起始值0
 		:return:
 		"""
-		self.fss = np.zeros((self.f_num,))
-		fss_b = self.fss[0:self.bf_num]
-		fss_u = self.fss[self.bf_num:]
-		for seq_id, text in enumerate(x_texts):
-			for loc_id in range(len(text)):
-				for ao in self.uon[seq_id][loc_id]:
-					fss_u[ao + y_label[seq_id][loc_id]] += 1.0
-				for ao in self.bon[seq_id][loc_id]:
-					if loc_id == 0:  # the first , yt-1=y0
-						fss_b[ao + y_label[seq_id][loc_id] * num_k + y0] += 1.0
-					else:
-						fss_b[ao + y_label[seq_id][loc_id] * num_k + y_label[seq_id][loc_id - 1]] += 1.0
+		self.fss = np.zeros((self.feature_size(),))
+		fss_b = self.fss[0:self.bf_size()]
+		fss_u = self.fss[self.bf_size():]
+		for seq_id, label in enumerate(labels):
+			for loc_id, y in enumerate(label):
+				fss_u += self.node_matrix[seq_id][loc_id][y, :]
+				y_p = label[loc_id - 1] if loc_id > 0 else y0
+				fss_b += self.edge_matrix[seq_id][loc_id][y_p, y, :]
 
-	def save_feature(self, tp_list):
-		result = ['#CRF Feature Templates.\n\n']
-		for tp in tp_list:
-			feature = tp[0] + ':'
-			for start, end in tp[1:]:
-				feature += '%x[' + start + ',' + end + ']'
-			result.append(feature)
-		result.append('\n\n#U')
-		u_feature = list(sorted(self.uf_obs.keys(), key=lambda x: x))
-		result.extend(u_feature)
-		with open('feature.txt', 'w', encoding='utf-8') as fp:
-			fp.write('\n'.join(result))
+	def add_feature_node(self, f):
+		self.feature_node.append(f)
 
-	def __call__(self, x_texts, y_label, tp_list, num_k, y0=0, *args, **kwargs):
-		self.process_features(x_texts, tp_list, num_k)
-		self.cal_observe_on(x_texts, tp_list)
-		self.cal_fss(x_texts, y_label, num_k, y0)
-		self.save_feature(tp_list)
+	def add_feature_edge(self, f):
+		self.feature_edge.append(f)
+
+	def feature_size(self):
+		"""特征函数个数"""
+		return len(self.feature_node) + len(self.feature_edge)
+
+	def uf_size(self):
+		"""u特征函数个数"""
+		return len(self.feature_node)
+
+	def bf_size(self):
+		"""B特征函数大小"""
+		return len(self.feature_edge)
+
+	def process_state(self, labels):
+		"""
+		状态预处理
+		:param labels:
+		:return:
+		"""
+		new_label = []
+		oby_id = 0
+		for sentence in labels:
+			s_label = []
+			for label in sentence:
+				label_id = self.oby_dict.get(label)
+				if label_id is None:
+					label_id = oby_id
+					self.oby_dict[label] = oby_id
+					oby_id += 1
+				s_label.append(label_id)
+			new_label.append(s_label)
+		self.num_k = len(self.oby_dict)
+		return new_label
+
+	def __call__(self, texts, labels, template_file, *args, **kwargs):
+		if template_file:
+			self.template = read_template(template_file)
+		self.seq_lens = [len(x) for x in labels]
+		labels = self.process_state(labels)
+		self.extract_features(texts)
+		self.cal_observe_on(texts)
+		self.cal_fss(labels, y0=0)
+
+
+# self.save_feature(template)
 
 
 class CRF(object):
@@ -175,20 +220,6 @@ class CRF(object):
 		:param fd: 特征频次
 		"""
 		self.theta = None
-		self.oby_dict = dict()
-		self.tp_list = [
-			['U00', ['-2', '0']],
-			['U01', ['-1', '0']],
-			['U02', ['0', '0']],
-			['U03', ['1', '0']],
-			['U04', ['2', '0']],
-			['U05', ['-2', '0'], ['-1', '0'], ['0', '0']],
-			['U06', ['-1', '0'], ['0', '0'], ['1', '0']],
-			['U07', ['0', '0'], ['1', '0'], ['2', '0']],
-			['U08', ['-1', '0'], ['0', '0']],
-			['U09', ['0', '0'], ['1', '0']],
-			['B'], ]
-		self.num_k = 0
 		self.sigma = sigma
 		self.regtype = regtype
 		self.feature = SeqFeature(fd=fd)
@@ -204,24 +235,16 @@ class CRF(object):
 		:param n_jobs: 进程数
 		:return:
 		"""
-		if template_file:
-			self.tp_list = read_template(template_file)
-		seq_lens = [len(x) for x in y_train]
-		y_train = self.process_state(y_train)
-		self.feature(x_train, y_train, self.tp_list, self.num_k, y0=0)
-
-		if self.feature.f_num == 0:
-			return
-
+		self.feature(x_train, y_train, template_file)
 		del x_train, y_train
 
-		theta = random_param(self.feature.uf_num, self.feature.bf_num)
+		theta = random_param(self.feature.feature_size())
 
 		if n_jobs:
 			n_jobs = min([os.cpu_count() - 1, n_jobs])
 		else:
 			n_jobs = os.cpu_count() - 1
-		likelihood = lambda x: -self.likelihood_parallel(x, seq_lens, n_jobs)
+		likelihood = lambda x: -self.likelihood_parallel(x, n_jobs)
 		likelihood_deriv = lambda x: -self.gradient_likelihood(x)
 		start_time = time.time()
 		theta, _, _ = optimize.fmin_l_bfgs_b(likelihood, theta, fprime=likelihood_deriv, maxiter=max_iter)
@@ -229,27 +252,6 @@ class CRF(object):
 		if model_file:
 			self.save_model(model_file)
 		print("L-BFGS-B 训练耗时:\t{}s".format(int(time.time() - start_time)))
-
-	def process_state(self, y_train):
-		"""
-		状态预处理
-		:param y_train:
-		:return:
-		"""
-		new_label = []
-		oby_id = 0
-		for sentence in y_train:
-			s_label = []
-			for label in sentence:
-				label_id = self.oby_dict.get(label)
-				if label_id is None:
-					label_id = oby_id
-					self.oby_dict[label] = oby_id
-					oby_id += 1
-				s_label.append(label_id)
-			new_label.append(s_label)
-		self.num_k = len(self.oby_dict)
-		return new_label
 
 	def predict(self, x_test, y_test=None, model_file=None, res_file=None):
 		"""
@@ -264,7 +266,7 @@ class CRF(object):
 			self.load_model(model_file)
 		seq_lens = [len(x) for x in x_test]
 		y2label = dict([(self.oby_dict[key], key) for key in self.oby_dict.keys()])
-		uon, bon = self.feature.cal_observe_on(x_test, self.tp_list)
+		uon, bon = self.feature.cal_observe_on(x_test)
 		max_ys = self.tagging_viterbi(seq_lens, uon, bon, y2label)
 		if y_test:
 			check_tagging(max_ys, y_test)
@@ -320,10 +322,9 @@ class CRF(object):
 		global _gradient
 		return _gradient
 
-	def likelihood_parallel(self, theta, seq_lens, n_jobs):
+	def likelihood_parallel(self, theta, n_jobs):
 		"""
 		并行计算参数 损失函数likelihood 梯度grad
-		:param seq_lens: 序列长度 [5,9,6,...]
 		:param theta: 参数
 		:param n_jobs: 进程数
 		:return:
@@ -331,10 +332,11 @@ class CRF(object):
 		global _gradient
 		grad = np.array(self.feature.fss, copy=True)  # data distribution
 		likelihood = np.dot(self.feature.fss, theta)
+		seq_lens = self.feature.seq_lens
 		seq_num = len(seq_lens)
-		uon = self.feature.uon
-		bon = self.feature.bon
 
+		node_matrix = self.feature.node_matrix
+		edge_matrix = self.feature.edge_matrix
 		n_thread = 2 * n_jobs
 		chunk = seq_num / n_thread
 		chunk_id = [int(kk * chunk) for kk in range(n_thread + 1)]
@@ -342,7 +344,7 @@ class CRF(object):
 		with futures.ProcessPoolExecutor(max_workers=n_jobs) as executor:
 			for ii, start in enumerate(chunk_id[:-1]):
 				end = chunk_id[ii + 1]
-				job = executor.submit(self.likelihood, theta, seq_lens[start:end], uon[start:end], bon[start:end])
+				job = executor.submit(self.likelihood, theta, node_matrix[start:end], edge_matrix[start:end])
 				jobs.append(job)
 		for job in jobs:
 			_likelihood, _grad = job.result()
@@ -353,28 +355,27 @@ class CRF(object):
 		_gradient = grad
 		return likelihood - self.regularity(theta, self.regtype, self.sigma)
 
-	def likelihood(self, theta, seq_lens, uon, bon):
+	def likelihood(self, theta, node_matrix, edge_matrix):
 		"""
 		计算序列特征概率
 		对数似然函数 L(theta) = theta * fss -sum(log Z)
 		梯度 grad = fss - sum (exp(theta * f) * f)
-		:param seq_lens: 序列长度
-		:param uon: u特征 [[[10,25,30],[45,394],[]],[]]
-		:param bon: b特征
+		:param node_matrix: u特征 [[[10,25,30],[45,394],[]],[]]
+		:param edge_matrix: b特征 [[[10,25,30],[45,394],[]],[]]
 		:param theta: 参数 shape=(uf_num + bf_num,)
 		:return:
 		"""
-		grad = np.zeros(self.feature.f_num)
+		grad = np.zeros(self.feature.feature_size())
 
-		bf_num = self.feature.bf_num
-		num_k = self.num_k
+		bf_size = self.feature.bf_size()
+		num_k = self.feature.num_k
 		likelihood = 0
-		grad_b = grad[0:bf_num]
-		grad_u = grad[bf_num:]
-		theta_b = theta[0:bf_num]
-		theta_u = theta[bf_num:]
-		for seq_id, seq_len in enumerate(seq_lens):
-			matrix_list = self.log_matrix(seq_len, uon[seq_id], bon[seq_id], theta_u, theta_b, num_k)
+		grad_b = grad[0:bf_size]
+		grad_u = grad[bf_size:]
+		theta_b = theta[0:bf_size]
+		theta_u = theta[bf_size:]
+		for seq_id, (node_f, edge_f) in enumerate(zip(node_matrix, edge_matrix)):
+			matrix_list = self.log_matrix(node_f, edge_f, theta_u, theta_b, num_k)
 			log_alphas = self.forward_alphas(matrix_list)
 			log_betas = self.backward_betas(matrix_list)
 			log_z = logsumexp(log_alphas[-1])
@@ -395,31 +396,24 @@ class CRF(object):
 		return likelihood, grad
 
 	@staticmethod
-	def log_matrix(seq_len, auon, abon, theta_u, theta_b, num_k):
+	def log_matrix(node_f, edge_f, theta_u, theta_b, num_k):
 		"""
 		特征抽取 条件随机场矩阵形式 M_i = sum( theta * f )
-		:param seq_len: 序列长度 int
-		:param auon: 序列u特征 shape =(seq_len,) [[1245,4665],[2,33,455],...]
-		:param abon: 序列u特征  shape =(seq_len,)
+		:param node_f: 序列u特征 shape =(seq_len, num_k, uf)
+		:param edge_f: 序列u特征  shape =(seq_len, num_k, num_k, bf)
 		:param theta_u: u特征参数
 		:param theta_b: b特征参数
 		:param num_k: 状态数
 		:return: num_k 阶矩阵 shape = (seq_len,num_k,num_k)
 		"""
 		matrix_list = []
-		for li in range(seq_len):
+		for loc_id, (node, edge) in enumerate(zip(node_f, edge_f)):
 			fv = np.zeros((num_k, num_k))
-			for ao in auon[li]:
-				m = theta_u[ao:ao + num_k]
-				fv += m[:, np.newaxis]
-
-			for ao in abon[li]:
-				m = theta_b[ao:ao + num_k * num_k]
-				fv += m.reshape((num_k, num_k))
+			fv += np.dot(node, theta_u)
+			for kk, value in enumerate(edge):
+				fv[kk] += np.dot(value, theta_b)
 			matrix_list.append(fv)
 		# 初始状态
-		for i in range(0, num_k):  # set the emerge function for ~y(0) to be -inf.
-			matrix_list[0][i][1:] = - float("inf")
 		return matrix_list
 
 	def forward_alphas(self, m_list):
@@ -428,7 +422,7 @@ class CRF(object):
 		:param m_list: 条件随机场矩阵形式 M_i = sum( theta * fss )
 		:return:
 		"""
-		log_alpha = m_list[0][:, 0]  # alpha(1)
+		log_alpha = m_list[0][0, :]  # alpha(1)
 		log_alphas = [log_alpha]
 		for logM in m_list[1:]:
 			log_alpha = self.logsumexp_vec_mat(log_alpha, logM)
@@ -456,11 +450,11 @@ class CRF(object):
 		:param log_m:
 		:return:
 		"""
-		return logsumexp(log_a + log_m, axis=1)
+		return logsumexp(log_a + log_m.T, axis=0)
 
 	@staticmethod
 	def logsumexp_mat_vec(log_m, logb):
-		return logsumexp(log_m + logb[:, np.newaxis], axis=0)
+		return logsumexp(log_m + logb, axis=1)
 
 	@staticmethod
 	def regularity(theta, regtype, sigma):
@@ -505,12 +499,7 @@ class CRF(object):
 		:param model_file:
 		:return:
 		"""
-		bf_num, uf_num, f_num, self.tp_list, self.oby_dict, uf_obs, bf_obs, self.theta, self.num_k = load_model(
-			model_file)
-		self.feature.bf_num = bf_num
-		self.feature.uf_num = uf_num
-		self.feature.uf_obs = uf_obs
-		self.feature.bf_obs = bf_obs
+		self.feature, self.theta = load_model(model_file)
 
 	def save_model(self, model_file):
 		"""
@@ -518,10 +507,5 @@ class CRF(object):
 		:param model_file:
 		:return:
 		"""
-		bf_num = self.feature.bf_num
-		uf_num = self.feature.uf_num
-		f_num = bf_num + uf_num
-		uf_obs = self.feature.uf_obs
-		bf_obs = self.feature.bf_obs
-		model = [bf_num, uf_num, f_num, self.tp_list, self.oby_dict, uf_obs, bf_obs, self.theta, self.num_k]
+		model = [self.feature, self.theta]
 		save_model(model, model_file)
