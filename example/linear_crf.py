@@ -282,12 +282,12 @@ class CRF(object):
 			for i in range(seq_len):
 				if i == 0:
 					# 起始状态
-					max_alpha[i] = matrix_list[0][:, 0]
+					max_alpha[i] = matrix_list[0][0, :]
 				elif i < seq_len:
 					# 取状态概率最大的序列(num_k,num_k)
-					at = matrix_list[i] + max_alpha[i - 1]
-					max_alpha[i] = at.max(axis=1)
-					max_index.append(at.argmax(axis=1))  # 索引代表前一时刻和当前时刻求和的最大值
+					at = matrix_list[i] + max_alpha[i - 1][:, np.newaxis]
+					max_alpha[i] = at.max(axis=0)
+					max_index.append(at.argmax(axis=0))  # 索引代表前一时刻和当前时刻求和的最大值
 			# 最终状态 取概率最大一个最为最终序列结果
 			max_state = []
 			ty = max_alpha[-1].argmax()

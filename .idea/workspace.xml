@@ -2,11 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="55243f1b-316d-4fdd-b13e-e7af149e6661" name="Default" comment="CRF">
+      <change afterPath="$PROJECT_DIR$/pyseq/feature.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/crf_train.py" beforeDir="false" afterPath="$PROJECT_DIR$/example/crf_train.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/example/linear_crf.py" beforeDir="false" afterPath="$PROJECT_DIR$/example/linear_crf.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pyseq/linear_crf.py" beforeDir="false" afterPath="$PROJECT_DIR$/pyseq/linear_crf.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pyseq/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/pyseq/utils.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -16,23 +15,34 @@
   </component>
   <component name="CoverageDataManager">
     <SUITE FILE_PATH="coverage/pyseq$linear_crf.coverage" NAME="linear_crf Coverage Results" MODIFIED="1543903801116" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/pyseq" />
-    <SUITE FILE_PATH="coverage/pyseq$crf_train.coverage" NAME="crf_train Coverage Results" MODIFIED="1544516731023" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
+    <SUITE FILE_PATH="coverage/pyseq$crf_train.coverage" NAME="crf_train Coverage Results" MODIFIED="1544523520916" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
     <SUITE FILE_PATH="coverage/pyseq$LinearCRF2.coverage" NAME="LinearCRF2 Coverage Results" MODIFIED="1543907354046" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/pyseq/linear_crf.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="418">
-              <caret line="422" column="43" selection-start-line="422" selection-start-column="43" selection-end-line="422" selection-end-column="43" />
+            <state relative-caret-position="371">
+              <caret line="304" lean-forward="true" selection-start-line="304" selection-end-line="304" />
               <folding>
                 <element signature="e#118#144#0" expanded="true" />
-                <element signature="e#6377#6773#0" />
-                <element signature="e#6850#7365#0" />
-                <element signature="e#7426#8462#0" />
-                <element signature="e#8514#8616#0" />
-                <element signature="e#8677#9671#0" />
+                <element signature="e#12284#12717#0" />
+                <element signature="e#13356#13747#0" />
+                <element signature="e#14179#14289#0" />
+                <element signature="e#14126#14469#0" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/pyseq/feature.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="-339">
+              <caret line="149" lean-forward="true" selection-start-line="149" selection-end-line="149" />
+              <folding>
+                <element signature="e#111#148#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -41,8 +51,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/example/linear_crf.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="475">
-              <caret line="387" column="31" lean-forward="true" selection-start-line="387" selection-start-column="31" selection-end-line="387" selection-end-column="31" />
+            <state relative-caret-position="452">
+              <caret line="414" column="26" lean-forward="true" selection-start-line="414" selection-start-column="26" selection-end-line="414" selection-end-column="26" />
               <folding>
                 <element signature="e#118#144#0" expanded="true" />
                 <element signature="e#8751#8853#0" />
@@ -60,11 +70,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/example/res.txt">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="31">
-              <caret line="1093" column="9" lean-forward="true" selection-start-line="1093" selection-start-column="9" selection-end-line="1093" selection-end-column="9" />
+            <state relative-caret-position="563">
+              <caret line="1121" column="9" lean-forward="true" selection-start-line="1121" selection-start-column="9" selection-end-line="1121" selection-end-column="9" />
             </state>
           </provider>
         </entry>
@@ -79,32 +89,22 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/example/crf.py">
+        <entry file="file://$PROJECT_DIR$/example/crf_train.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="447">
-              <caret line="129" column="30" lean-forward="true" selection-start-line="129" selection-start-column="30" selection-end-line="129" selection-end-column="30" />
+            <state relative-caret-position="247">
+              <caret line="13" column="12" selection-start-line="13" selection-start-column="12" selection-end-line="13" selection-end-column="12" />
               <folding>
-                <element signature="e#172#184#0" expanded="true" />
-                <element signature="e#2789#3395#0" />
-                <element signature="e#3480#3982#0" />
-                <element signature="e#4020#4067#0" />
-                <element signature="e#4399#4641#0" />
-                <element signature="e#4689#5150#0" />
-                <element signature="e#6706#6937#0" />
-                <element signature="e#6981#7582#0" />
-                <element signature="e#7633#8574#0" />
-                <element signature="e#9180#10311#0" />
-                <element signature="e#10354#10675#0" />
+                <element signature="e#118#152#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/example/crf_train.py">
+        <entry file="file://$PROJECT_DIR$/example/feature.txt">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="95">
-              <caret line="5" column="10" selection-start-line="5" selection-start-column="10" selection-end-line="5" selection-end-column="10" />
+            <state relative-caret-position="304">
+              <caret line="16" column="2" lean-forward="true" selection-start-line="16" selection-start-column="2" selection-end-line="16" selection-end-column="2" />
             </state>
           </provider>
         </entry>
@@ -112,17 +112,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/example/templates.txt">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="266">
-              <caret line="14" column="1" lean-forward="true" selection-start-line="14" selection-start-column="1" selection-end-line="14" selection-end-column="1" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/example/test.txt">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="190">
-              <caret line="10" column="17" selection-start-line="10" selection-start-column="17" selection-end-line="10" selection-end-column="17" />
+            <state relative-caret-position="133">
+              <caret line="7" column="8" selection-start-line="7" selection-start-column="8" selection-end-line="7" selection-end-column="8" />
             </state>
           </provider>
         </entry>
@@ -172,10 +163,13 @@
       <find>obserivation</find>
       <find>num_state</find>
       <find>者</find>
+      <find>f_num</find>
     </findStrings>
     <replaceStrings>
       <replace>np</replace>
       <replace>num_k</replace>
+      <replace>bf_size</replace>
+      <replace>f_size</replace>
     </replaceStrings>
   </component>
   <component name="Git.Settings">
@@ -196,8 +190,9 @@
         <option value="$PROJECT_DIR$/example/templates.txt" />
         <option value="$PROJECT_DIR$/pyseq/utils.py" />
         <option value="$PROJECT_DIR$/example/linear_crf.py" />
-        <option value="$PROJECT_DIR$/pyseq/linear_crf.py" />
         <option value="$PROJECT_DIR$/example/crf_train.py" />
+        <option value="$PROJECT_DIR$/pyseq/feature.py" />
+        <option value="$PROJECT_DIR$/pyseq/linear_crf.py" />
       </list>
     </option>
   </component>
@@ -363,7 +358,7 @@
       <workItem from="1543992653260" duration="15466000" />
       <workItem from="1544164815524" duration="746000" />
       <workItem from="1544175976505" duration="26358000" />
-      <workItem from="1544507493846" duration="9264000" />
+      <workItem from="1544507493846" duration="16187000" />
     </task>
     <task id="LOCAL-00001" summary="CRF">
       <created>1543822771315</created>
@@ -449,22 +444,29 @@
       <option name="project" value="LOCAL" />
       <updated>1544350315693</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="CRF">
+      <created>1544516764198</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1544516764198</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="85553000" />
+    <option name="totallyTimeSpent" value="92476000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="1919" y="-11" width="1922" height="1029" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.178762" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.178762" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.32922733" />
-      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.3281075" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.3281075" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -619,13 +621,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/example/feature.txt">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="434">
-          <caret line="466" column="9" lean-forward="true" selection-start-line="466" selection-start-column="9" selection-end-line="466" selection-end-column="9" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/example/test.txt">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="190">
@@ -712,13 +707,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/example/templates.txt">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="266">
-          <caret line="14" column="1" lean-forward="true" selection-start-line="14" selection-start-column="1" selection-end-line="14" selection-end-column="1" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/example/model_301_JZ_NAME">
       <provider selected="true" editor-type-id="text-editor">
         <state>
@@ -726,10 +714,58 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/example/res.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="563">
+          <caret line="1121" column="9" lean-forward="true" selection-start-line="1121" selection-start-column="9" selection-end-line="1121" selection-end-column="9" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/example/templates.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="133">
+          <caret line="7" column="8" selection-start-line="7" selection-start-column="8" selection-end-line="7" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/example/feature.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="304">
+          <caret line="16" column="2" lean-forward="true" selection-start-line="16" selection-start-column="2" selection-end-line="16" selection-end-column="2" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file:///usr/lib/python3.5/concurrent/futures/_base.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="190">
+          <caret line="397" selection-start-line="397" selection-end-line="397" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/example/crf_train.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="247">
+          <caret line="13" column="12" selection-start-line="13" selection-start-column="12" selection-end-line="13" selection-end-column="12" />
+          <folding>
+            <element signature="e#118#152#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/pyseq/feature.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-339">
+          <caret line="149" lean-forward="true" selection-start-line="149" selection-end-line="149" />
+          <folding>
+            <element signature="e#111#148#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/example/linear_crf.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="475">
-          <caret line="387" column="31" lean-forward="true" selection-start-line="387" selection-start-column="31" selection-end-line="387" selection-end-column="31" />
+        <state relative-caret-position="452">
+          <caret line="414" column="26" lean-forward="true" selection-start-line="414" selection-start-column="26" selection-end-line="414" selection-end-column="26" />
           <folding>
             <element signature="e#118#144#0" expanded="true" />
             <element signature="e#8751#8853#0" />
@@ -739,30 +775,15 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/pyseq/linear_crf.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="418">
-          <caret line="422" column="43" selection-start-line="422" selection-start-column="43" selection-end-line="422" selection-end-column="43" />
+        <state relative-caret-position="371">
+          <caret line="304" lean-forward="true" selection-start-line="304" selection-end-line="304" />
           <folding>
             <element signature="e#118#144#0" expanded="true" />
-            <element signature="e#6377#6773#0" />
-            <element signature="e#6850#7365#0" />
-            <element signature="e#7426#8462#0" />
-            <element signature="e#8514#8616#0" />
-            <element signature="e#8677#9671#0" />
+            <element signature="e#12284#12717#0" />
+            <element signature="e#13356#13747#0" />
+            <element signature="e#14179#14289#0" />
+            <element signature="e#14126#14469#0" />
           </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/example/crf_train.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="95">
-          <caret line="5" column="10" selection-start-line="5" selection-start-column="10" selection-end-line="5" selection-end-column="10" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/example/res.txt">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="31">
-          <caret line="1093" column="9" lean-forward="true" selection-start-line="1093" selection-start-column="9" selection-end-line="1093" selection-end-column="9" />
         </state>
       </provider>
     </entry>
