@@ -22,6 +22,8 @@ class SeqFeature(object):
 		self.feature_edge = []
 		self.node_matrix = []
 		self.edge_matrix = []
+		self.node_obs = {}
+		self.edge_obs = {}
 		self.template = [
 			['U00', ['-2', '0']],
 			['U01', ['-1', '0']],
@@ -64,14 +66,19 @@ class SeqFeature(object):
 
 		node_f = [key for key, v in sorted(uf_obs.items(), key=lambda x: x[1], reverse=True) if v >= self.fd]
 		edge_f = [key for key, v in sorted(bf_obs.items(), key=lambda x: x[1], reverse=True) if v >= self.fd]
-		# 特征函数
-		for state_p in range(self.num_k):
-			for state in range(self.num_k):
-				for edge in edge_f:
-					self.add_feature_edge(lambda y_p, y, x, i: 1 if y_p == state_p and state == y and x == edge else 0)
-		for state in range(self.num_k):
-			for node in node_f:
-				self.add_feature_node(lambda y, x, i: 1 if y == state and node == x else 0)
+		self.node_obs = {key: kk * self.num_k for kk, key in enumerate(node_f)}
+		self.edge_obs = {key: kk * self.num_k * self.num_k for kk, key in enumerate(edge_f)}
+
+	# 特征函数
+	# for state_p in range(self.num_k):
+	# 	for state in range(self.num_k):
+	# 		for edge in edge_f:
+	# 			# self.add_feature_edge(lambda y_p, y, x, i: 1 if y_p == state_p and state == y and x == edge else 0)
+	# 			self.add_feature_edge(1)
+	# for state in range(self.num_k):
+	# 	for node in node_f:
+	# 		# self.add_feature_node(lambda y, x, i: 1 if y == state and node == x else 0)
+	# 		self.add_feature_node(1)
 
 	@staticmethod
 	def expand_observation(sentence, loc_id, tp):
@@ -103,45 +110,23 @@ class SeqFeature(object):
 			seq_uon = []
 			seq_bon = []
 			for loc_id in range(len(text)):
-				uf = np.zeros((self.num_k, self.uf_size()))
-				bf = np.zeros((self.num_k, self.num_k, self.bf_size()))
+				uf = []
+				bf = []
 				for ti, tp in enumerate(self.template):
 					obx = self.expand_observation(text, loc_id, tp)
 					if tp[0][0] == "B":
-						bf += self.cal_bf(obx, loc_id, self.num_k)
+						bf_id = self.edge_obs.get(obx)
+						if bf_id is not None:
+							bf.append(bf_id)
 					if tp[0][0] == "U":
-						uf += self.cal_uf(obx, loc_id, self.num_k)
+						uf_id = self.node_obs.get(obx)
+						if uf_id is not None:
+							uf.append(uf_id)
 				seq_uon.append(uf)
 				seq_bon.append(bf)
 			self.node_matrix.append(seq_uon)
 			self.edge_matrix.append(seq_bon)
-
-	def cal_bf(self, x_i, loc_id, num_k):
-		"""
-		b特征统计 K * K * n K^2
-		:param x_i:
-		:param loc_id:
-		:param num_k:
-		:return:
-		"""
-		bf = np.zeros((num_k, num_k, self.bf_size()))
-		for state_p in range(num_k):
-			for state in range(num_k):
-				bf[state_p, state, :] = [f(state_p, state, x_i, loc_id) for f in self.feature_edge]
-		return bf
-
-	def cal_uf(self, x_i, loc_id, num_k):
-		"""
-		u特征统计 K * n K
-		:param x_i:
-		:param loc_id:
-		:param num_k:
-		:return:
-		"""
-		uf = np.zeros((num_k, self.uf_size()))
-		for state in range(num_k):
-			uf[state, :] = [f(state, x_i, loc_id) for f in self.feature_node]
-		return uf
+		return self.node_matrix, self.edge_matrix
 
 	def cal_fss(self, labels, y0):
 		"""
@@ -150,32 +135,31 @@ class SeqFeature(object):
 		:param y0: 起始值0
 		:return:
 		"""
-		self.fss = np.zeros((self.feature_size(),))
+		self.fss = np.zeros((self.size(),))
 		fss_b = self.fss[0:self.bf_size()]
 		fss_u = self.fss[self.bf_size():]
 		for seq_id, label in enumerate(labels):
+			y_p = y0
 			for loc_id, y in enumerate(label):
-				fss_u += self.node_matrix[seq_id][loc_id][y, :]
-				y_p = label[loc_id - 1] if loc_id > 0 else y0
-				fss_b += self.edge_matrix[seq_id][loc_id][y_p, y, :]
+				for uf_id in self.node_matrix[seq_id][loc_id]:
+					fss_u[uf_id + y] += 1
+				for bf_id in self.edge_matrix[seq_id][loc_id]:
+					fss_b[bf_id + y_p * self.num_k + y] += 1
+				# y_p = label[loc_id - 1] if loc_id > 0 else y0
+				# fss_b += self.edge_matrix[seq_id][loc_id][y_p, y, :]
+				y_p = y
 
-	def add_feature_node(self, f):
-		self.feature_node.append(f)
-
-	def add_feature_edge(self, f):
-		self.feature_edge.append(f)
-
-	def feature_size(self):
+	def size(self):
 		"""特征函数个数"""
-		return len(self.feature_node) + len(self.feature_edge)
+		return len(self.edge_obs) * self.num_k * self.num_k + len(self.node_obs) * self.num_k
 
 	def uf_size(self):
 		"""u特征函数个数"""
-		return len(self.feature_node)
+		return len(self.node_obs) * self.num_k
 
 	def bf_size(self):
 		"""B特征函数大小"""
-		return len(self.feature_edge)
+		return len(self.edge_obs) * self.num_k * self.num_k
 
 	def process_state(self, labels):
 		"""
@@ -238,12 +222,15 @@ class CRF(object):
 		self.feature(x_train, y_train, template_file)
 		del x_train, y_train
 
-		theta = random_param(self.feature.feature_size())
+		theta = random_param(self.feature.size())
 
 		if n_jobs:
 			n_jobs = min([os.cpu_count() - 1, n_jobs])
 		else:
 			n_jobs = os.cpu_count() - 1
+
+		# self.likelihood_parallel(theta, n_jobs)
+		# exit()
 		likelihood = lambda x: -self.likelihood_parallel(x, n_jobs)
 		likelihood_deriv = lambda x: -self.gradient_likelihood(x)
 		start_time = time.time()
@@ -265,7 +252,7 @@ class CRF(object):
 		if model_file:
 			self.load_model(model_file)
 		seq_lens = [len(x) for x in x_test]
-		y2label = dict([(self.oby_dict[key], key) for key in self.oby_dict.keys()])
+		y2label = dict([(self.feature.oby_dict[key], key) for key in self.feature.oby_dict.keys()])
 		uon, bon = self.feature.cal_observe_on(x_test)
 		max_ys = self.tagging_viterbi(seq_lens, uon, bon, y2label)
 		if y_test:
@@ -283,13 +270,13 @@ class CRF(object):
 		:param y2label: y2label id-label
 		:return:
 		"""
-		bf_num = self.feature.bf_num
+		bf_num = self.feature.bf_size()
 		theta_b = self.theta[0:bf_num]
 		theta_u = self.theta[bf_num:]
 		max_ys = []
 		for seq_id, seq_len in enumerate(seq_lens):
-			matrix_list = self.log_matrix(seq_len, uon[seq_id], bon[seq_id], theta_u, theta_b, self.num_k)
-			max_alpha = np.zeros((len(matrix_list), self.num_k))
+			matrix_list = self.log_matrix(uon[seq_id], bon[seq_id], theta_u, theta_b, self.feature.num_k)
+			max_alpha = np.zeros((len(matrix_list), self.feature.num_k))
 
 			max_index = []
 			for i in range(seq_len):
@@ -365,7 +352,7 @@ class CRF(object):
 		:param theta: 参数 shape=(uf_num + bf_num,)
 		:return:
 		"""
-		grad = np.zeros(self.feature.feature_size())
+		grad = np.zeros(self.feature.size())
 
 		bf_size = self.feature.bf_size()
 		num_k = self.feature.num_k
@@ -375,6 +362,7 @@ class CRF(object):
 		theta_b = theta[0:bf_size]
 		theta_u = theta[bf_size:]
 		for seq_id, (node_f, edge_f) in enumerate(zip(node_matrix, edge_matrix)):
+
 			matrix_list = self.log_matrix(node_f, edge_f, theta_u, theta_b, num_k)
 			log_alphas = self.forward_alphas(matrix_list)
 			log_betas = self.backward_betas(matrix_list)
@@ -383,16 +371,20 @@ class CRF(object):
 			expect = np.zeros((num_k, num_k))
 			for i in range(len(matrix_list)):
 				if i == 0:
-					expect = np.exp(matrix_list[0] + log_betas[i][:, np.newaxis] - log_z)
+					expect = np.exp(matrix_list[0] + log_betas[i] - log_z)
 				elif i < len(matrix_list):
 					expect = np.exp(
-						matrix_list[i] + log_alphas[i - 1][np.newaxis, :] + log_betas[i][:, np.newaxis] - log_z)
-				p_yi = np.sum(expect, axis=1)
-				# minus the parameter distribution
-				for ao in uon[seq_id][i]:
-					grad_u[ao:ao + num_k] -= p_yi
-				for ao in bon[seq_id][i]:
+						matrix_list[i] + log_alphas[i - 1][:, np.newaxis] + log_betas[i] - log_z)
+
+				for ao in node_f[i]:
+					grad_u[ao:ao + num_k] -= np.sum(expect, axis=0)
+				for ao in edge_f[i]:
 					grad_b[ao:ao + num_k * num_k] -= expect.reshape((num_k * num_k))
+		# node_grad = np.dot(np.exp(log_alphas[i] + log_betas[i]), node_f[i])
+		# edge_grad = np.dot(expect.reshape((num_k * num_k)), edge_f.reshape((num_k * num_k)))
+
+		# grad_u -= node_grad
+		# grad_b -= edge_grad
 		return likelihood, grad
 
 	@staticmethod
@@ -409,10 +401,16 @@ class CRF(object):
 		matrix_list = []
 		for loc_id, (node, edge) in enumerate(zip(node_f, edge_f)):
 			fv = np.zeros((num_k, num_k))
-			fv += np.dot(node, theta_u)
-			for kk, value in enumerate(edge):
-				fv[kk] += np.dot(value, theta_b)
+			for uf_id in node:
+				fv += theta_u[uf_id:uf_id + num_k]
+			for bf_id in edge:
+				fv += theta_b[bf_id:bf_id + num_k * num_k].reshape((num_k, num_k))
+			# fv += np.dot(node, theta_u)
+			# for kk, value in enumerate(edge):
+			# 	fv[kk] += np.dot(value, theta_b)
 			matrix_list.append(fv)
+		for state in range(1, num_k):
+			matrix_list[0][state, :] = -float('inf')
 		# 初始状态
 		return matrix_list
 
@@ -435,7 +433,7 @@ class CRF(object):
 		:param m_list: 条件随机场矩阵形式 M_i = sum( theta * fss )
 		:return:
 		"""
-		log_beta = np.zeros_like(m_list[-1][:, 0])
+		log_beta = np.zeros_like(m_list[-1][0, :])
 		log_betas = [log_beta]
 		for logM in m_list[-1:0:-1]:
 			log_beta = self.logsumexp_mat_vec(logM, log_beta)
@@ -450,7 +448,7 @@ class CRF(object):
 		:param log_m:
 		:return:
 		"""
-		return logsumexp(log_a + log_m.T, axis=0)
+		return logsumexp(log_a[:, np.newaxis] + log_m, axis=0)
 
 	@staticmethod
 	def logsumexp_mat_vec(log_m, logb):

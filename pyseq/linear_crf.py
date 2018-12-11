@@ -5,7 +5,7 @@
 # @File    : linear_crf.py
 from scipy import optimize
 import time
-from .utils import *
+from pyseq.utils import *
 from concurrent import futures
 
 _gradient = None  # global variable used to store the gradient calculated in liklihood function.
@@ -55,7 +55,6 @@ class SeqFeature(object):
 			uf_obs = {k: v for k, v in uf_obs.items() if v >= self.fd}
 			bf_obs = {k: v for k, v in bf_obs.items() if v >= self.fd}
 		# print("特征:\t", list(uf_obs.keys())[-10:])
-		print(bf_obs)
 		uf_num, bf_num = 0, 0
 		for obx in bf_obs.keys():
 			bf_obs[obx] = bf_num
@@ -69,7 +68,6 @@ class SeqFeature(object):
 		self.f_num = uf_num + bf_num
 		self.uf_obs = uf_obs
 		self.bf_obs = bf_obs
-		print(bf_obs)
 		print("B 特征:\t{}\nU 特征:\t{}\n总特征:\t{}\n".format(self.bf_num, self.uf_num, self.f_num))
 
 	@staticmethod
@@ -215,12 +213,14 @@ class CRF(object):
 
 		del x_train, y_train
 
-		theta = random_param(self.feature.uf_num, self.feature.bf_num)
+		theta = random_param(self.feature.uf_num + self.feature.bf_num)
 
 		if n_jobs:
 			n_jobs = min([os.cpu_count() - 1, n_jobs])
 		else:
 			n_jobs = os.cpu_count() - 1
+		# self.likelihood_parallel(theta,seq_lens,n_jobs)
+		# exit()
 		likelihood = lambda x: -self.likelihood_parallel(x, seq_lens, n_jobs)
 		likelihood_deriv = lambda x: -self.gradient_likelihood(x)
 		start_time = time.time()
@@ -418,8 +418,9 @@ class CRF(object):
 				fv += m.reshape((num_k, num_k))
 			matrix_list.append(fv)
 		# 初始状态
-		for i in range(0, num_k):  # set the emerge function for ~y(0) to be -inf.
-			matrix_list[0][i][1:] = - float("inf")
+		# for i in range(0, num_k):  # set the emerge function for ~y(0) to be -inf.
+		# 	matrix_list[0][i][1:] = - float("inf")
+		matrix_list[0][:, 1:] = -float('inf')
 		return matrix_list
 
 	def forward_alphas(self, m_list):
