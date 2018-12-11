@@ -5,12 +5,23 @@
 # @File    : linear_crf.py
 from scipy import optimize
 import time
-
 from pyseq.feature import Feature
 from pyseq.utils import *
 from concurrent import futures
 
 _gradient = None
+
+
+def logsumexp_vec_mat(log_a, log_m):
+	"""
+	计算logsumexp log(e^x) = a-log(e^(-x+a)) np.dot(a, M) = exp(log a + log m)
+	"""
+	return logsumexp(log_a[:, np.newaxis] + log_m, axis=0)
+
+
+def logsumexp_mat_vec(log_m, logb):
+	"""np.dot(M, b) = exp(log M, log b)"""
+	return logsumexp(log_m + logb, axis=1)
 
 
 class CRF(object):
@@ -45,7 +56,7 @@ class CRF(object):
 		likelihood_deriv = lambda x: -self.gradient_likelihood(x)
 		start_time = time.time()
 		print('L-BFGS 训练...')
-		theta, _, _ = optimize.fmin_l_bfgs_b(likelihood, theta, fprime=likelihood_deriv, maxiter=max_iter)
+		theta, _, _ = optimize.fmin_l_bfgs_b(likelihood, theta, fprime=likelihood_deriv, disp=1, maxiter=max_iter)
 		if model_file:
 			self.save_model(model_file, theta)
 		print("训练耗时:\t{}s\n".format(int(time.time() - start_time)))
@@ -214,45 +225,33 @@ class CRF(object):
 		matrix_list[0][1:, :] = -float('inf')
 		return matrix_list
 
-	def forward_alphas(self, m_list):
+	@staticmethod
+	def forward_alphas(m_list):
 		"""
-		前向算法 alpha
+		前向算法  alpha  = dot(alpha, M) = exp(log alpha + log M)
 		:param m_list: 条件随机场矩阵形式 M_i = sum( theta * fss )
 		:return:
 		"""
 		log_alpha = m_list[0][0, :]
 		log_alphas = [log_alpha]
 		for logM in m_list[1:]:
-			log_alpha = self.logsumexp_vec_mat(log_alpha, logM)
+			log_alpha = logsumexp_vec_mat(log_alpha, logM)
 			log_alphas.append(log_alpha)
 		return log_alphas
 
-	def backward_betas(self, m_list):
+	@staticmethod
+	def backward_betas(m_list):
 		"""
-		后向算法 beta
+		后向算法 beta = dot(M, beta) = exp(log M + log beta)
 		:param m_list: 条件随机场矩阵形式 M_i = sum( theta * fss )
 		:return:
 		"""
 		log_beta = np.zeros_like(m_list[-1][0, :])
 		log_betas = [log_beta]
 		for logM in m_list[-1:0:-1]:
-			log_beta = self.logsumexp_mat_vec(logM, log_beta)
+			log_beta = logsumexp_mat_vec(logM, log_beta)
 			log_betas.append(log_beta)
 		return log_betas[::-1]
-
-	@staticmethod
-	def logsumexp_vec_mat(log_a, log_m):
-		"""
-		计算logsumexp log(e^x) = a-log(e^(-x+a))
-		:param log_a:
-		:param log_m:
-		:return:
-		"""
-		return logsumexp(log_a[:, np.newaxis] + log_m, axis=0)
-
-	@staticmethod
-	def logsumexp_mat_vec(log_m, logb):
-		return logsumexp(log_m + logb, axis=1)
 
 	def regularity(self, theta):
 		"""
