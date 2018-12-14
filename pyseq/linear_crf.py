@@ -106,7 +106,7 @@ class CRF(object):
 					max_alpha[loc_id] = matrix[0, :]
 				else:
 					# 取状态概率最大的序列(num_k,num_k)
-					at = matrix + max_alpha[loc_id - 1][:, np.newaxis]
+					at = max_alpha[loc_id - 1][:, np.newaxis] + matrix
 					max_alpha[loc_id] = at.max(axis=0)
 					max_index.append(at.argmax(axis=0))  # 索引代表前一时刻和当前时刻求和的最大值
 			# 最终状态 取概率最大一个最为最终序列结果
